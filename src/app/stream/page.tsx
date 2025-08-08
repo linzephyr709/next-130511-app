@@ -1,125 +1,187 @@
-'use client';
+import { Suspense } from 'react'
 
-import { Suspense, useState } from 'react';
+// 使用 fetch API 获取数据
+async function fetchUserData() {
+  try {
+    // 使用 JSONPlaceholder API 获取用户数据
+    await new Promise(resolve => setTimeout(resolve, 10000))
+    const response = await fetch('https://jsonplaceholder.typicode.com/users/1', { cache: 'no-store' })
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+    
+    const user = await response.json()
+    
+    return {
+      id: user.id,
+      name: '张三我是张三',
+      email: user.email,
+      avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.name}`
+    }
+  } catch (error) {
+    console.error('Error fetching user data:', error)
+    throw new Error('Failed to fetch user data')
+  }
+}
 
-// 模拟异步数据获取
-const fetchUserData = async (userId: number) => {
-  // 模拟网络延迟
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  
-  return {
-    id: userId,
-    name: `用户 ${userId}`,
-    email: `user${userId}@example.com`,
-    avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`,
-    joinDate: new Date().toLocaleDateString('zh-CN')
-  };
-};
+// 文章类型定义
+interface Post {
+  id: number
+  title: string
+  content: string
+  date: string
+}
 
-// 异步用户数据组件
-const UserProfile = async ({ userId }: { userId: number }) => {
-  const userData = await fetchUserData(userId);
+// API 返回的文章类型
+interface ApiPost {
+  id: number
+  title: string
+  body: string
+}
+
+async function fetchPosts() {
+  try {
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    // 使用 JSONPlaceholder API 获取文章数据
+    const response = await fetch('https://jsonplaceholder.typicode.com/posts?_limit=3', { cache: 'no-store' })
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+    
+    const posts = await response.json()
+    
+    return posts.map((post: ApiPost, index: number) => ({
+      id: post.id,
+      title: post.title,
+      content: post.body.substring(0, 100) + '...',
+      date: new Date(Date.now() - index * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    }))
+  } catch (error) {
+    console.error('Error fetching posts:', error)
+    throw new Error('Failed to fetch posts')
+  }
+}
+
+// 用户信息组件
+async function UserProfile() {
+  const user = await fetchUserData()
   
   return (
-    <div className="bg-white rounded-lg shadow-md p-6 max-w-md mx-auto">
+    <div className="bg-white rounded-lg shadow-md p-6 mb-6">
       <div className="flex items-center space-x-4">
         <img 
-          src={userData.avatar} 
-          alt={userData.name}
+          src={user.avatar} 
+          alt={user.name}
           className="w-16 h-16 rounded-full"
         />
         <div>
-          <h2 className="text-xl font-bold text-gray-800">{userData.name}</h2>
-          <p className="text-gray-600">{userData.email}</p>
-          <p className="text-sm text-gray-500">加入时间: {userData.joinDate}</p>
+          <h2 className="text-xl font-semibold text-gray-900">{user.name}</h2>
+          <p className="text-gray-600">{user.email}</p>
         </div>
       </div>
     </div>
-  );
-};
+  )
+}
 
-// 加载状态组件
-const LoadingSpinner = () => (
-  <div className="flex items-center justify-center p-8">
-    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-    <span className="ml-3 text-gray-600">正在加载用户数据...</span>
-  </div>
-);
-
-// 错误边界组件
-const ErrorFallback = ({ error, resetErrorBoundary }: { error: Error, resetErrorBoundary: () => void }) => (
-  <div className="bg-red-50 border border-red-200 rounded-lg p-4 max-w-md mx-auto">
-    <h3 className="text-red-800 font-semibold">加载失败</h3>
-    <p className="text-red-600 mt-2">{error.message}</p>
-    <button 
-      onClick={resetErrorBoundary}
-      className="mt-3 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-    >
-      重试
-    </button>
-  </div>
-);
-
-// 用户列表组件
-const UserList = () => {
-  const [selectedUserId, setSelectedUserId] = useState(1);
+// 文章列表组件
+async function PostsList() {
+  const posts = await fetchPosts()
   
   return (
-    <div className="space-y-4">
-      <div className="flex space-x-2 justify-center">
-        {[1, 2, 3, 4, 5].map(userId => (
-          <button
-            key={userId}
-            onClick={() => setSelectedUserId(userId)}
-            className={`px-4 py-2 rounded ${
-              selectedUserId === userId 
-                ? 'bg-blue-600 text-white' 
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-            }`}
-          >
-            用户 {userId}
-          </button>
+    <div className="bg-white rounded-lg shadow-md p-6">
+      <h3 className="text-lg font-semibold text-gray-900 mb-4">最新文章</h3>
+      <div className="space-y-4">
+        {posts.map((post: Post) => (
+          <article key={post.id} className="border-b border-gray-200 pb-4 last:border-b-0">
+            <h4 className="text-md font-medium text-gray-900 mb-2">{post.title}</h4>
+            <p className="text-gray-600 text-sm mb-2">{post.content}</p>
+            <time className="text-xs text-gray-500">{post.date}</time>
+          </article>
         ))}
       </div>
-      
-      <Suspense fallback={<LoadingSpinner />}>
-        <UserProfile userId={selectedUserId} />
-      </Suspense>
     </div>
-  );
-};
+  )
+}
 
-// 主页面组件
+// 加载骨架屏组件
+function LoadingSkeleton() {
+  return (
+    <div className="animate-pulse">
+      <div className="bg-gray-200 rounded-lg p-6 mb-6">
+        <div className="flex items-center space-x-4">
+          <div className="w-16 h-16 bg-gray-300 rounded-full"></div>
+          <div className="space-y-2">
+            <div className="h-4 bg-gray-300 rounded w-24"></div>
+            <div className="h-3 bg-gray-300 rounded w-32"></div>
+          </div>
+        </div>
+      </div>
+      
+      <div className="bg-gray-200 rounded-lg p-6">
+        <div className="h-5 bg-gray-300 rounded w-20 mb-4"></div>
+        <div className="space-y-4">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="border-b border-gray-300 pb-4 last:border-b-0">
+              <div className="h-4 bg-gray-300 rounded w-3/4 mb-2"></div>
+              <div className="h-3 bg-gray-300 rounded w-full mb-2"></div>
+              <div className="h-3 bg-gray-300 rounded w-1/4"></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// 错误边界组件
+function ErrorFallback({ error }: { error: Error }) {
+  return (
+    <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+      <h3 className="text-lg font-semibold text-red-800 mb-2">加载失败</h3>
+      <p className="text-red-600">{error.message}</p>
+    </div>
+  )
+}
+
 export default function StreamPage() {
   return (
-    <div className="min-h-screen bg-gray-100 py-8">
-      <div className="container mx-auto px-4">
-        <h1 className="text-3xl font-bold text-center text-gray-800 mb-8">
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-4xl mx-auto px-4">
+        <h1 className="text-3xl font-bold text-gray-900 mb-8 text-center">
           Suspense 示例
         </h1>
         
-        <div className="max-w-2xl mx-auto">
-          <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-            <h2 className="text-xl font-semibold mb-4">异步数据加载演示</h2>
-            <p className="text-gray-600 mb-4">
-              点击下面的用户按钮来切换不同的用户数据。每次切换都会触发异步数据加载，
-              Suspense 会显示加载状态直到数据加载完成。
-            </p>
-            
-            <UserList />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* 用户信息区域 */}
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">用户信息</h2>
+            <Suspense fallback={<LoadingSkeleton />}>
+              <UserProfile />
+            </Suspense>
           </div>
           
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h3 className="text-blue-800 font-semibold mb-2">Suspense 特性说明：</h3>
-            <ul className="text-blue-700 space-y-1 text-sm">
-              <li>• 异步组件加载时显示 fallback 内容</li>
-              <li>• 数据加载完成后自动渲染组件</li>
-              <li>• 支持错误边界处理加载失败</li>
-              <li>• 提供更好的用户体验</li>
-            </ul>
+          {/* 文章列表区域 */}
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">文章列表</h2>
+            <Suspense fallback={<LoadingSkeleton />}>
+              <PostsList />
+            </Suspense>
           </div>
+        </div>
+        
+        {/* 说明文字 */}
+        <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-blue-800 mb-2">Suspense 特性说明</h3>
+          <ul className="text-blue-700 space-y-1 text-sm">
+            <li>• 使用 Suspense 包装异步组件，提供加载状态</li>
+            <li>• 支持流式渲染，提升用户体验</li>
+            <li>• 可以并行加载多个异步组件</li>
+            <li>• 每个 Suspense 边界可以独立加载</li>
+          </ul>
         </div>
       </div>
     </div>
-  );
+  )
 }
